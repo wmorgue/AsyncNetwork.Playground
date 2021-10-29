@@ -1,41 +1,42 @@
-//: [Previous](@previous)
-
 import Foundation
+import _Concurrency
 
-/*
- [
-	 {
-	 "id":"abys",
-	 "name":"Abyssinian",
-	 "temperament":"Active, Energetic, Independent, Intelligent, Gentle",
-	 "origin":"Egypt",
-	 "description":"The Abyssinian is easy to care for, and a joy to have in your home. They’re affectionate cats and love both people and other animals.",
-	 "life_span":"14 - 15",
-	 "hairless":0,
-	 "wikipedia_url":"https://en.wikipedia.org/wiki/Abyssinian_(cat)",
-	 "hypoallergenic":0,
-	 "reference_image_id":"0XYvRd7oD",
-	 "image": {
-		 "id":"0XYvRd7oD",
-		 "width":1204,
-		 "height":1445,
-		 "url":"https://cdn2.thecatapi.com/images/0XYvRd7oD.jpg"
-		 }
-	 }
- ]
-*/
 
+enum APIError: Error {
+	
+	case noInternet
+	case invalidData
+	case jsonParsingFailure
+	case failedSerialization
+	case invalidURL(url: URL)
+	case requestFailed(description: String)
+	case responseUnsuccessful(description: String)
+	case jsonConversionFailure(description: String)
+	
+	var customDescription: String {
+		switch self {
+			case .invalidURL(let url): return "Invalid URL: \(url)"
+			case .invalidData: return "Invalid Data error"
+			case .noInternet: return "No internet connection"
+			case .jsonParsingFailure: return "JSON Parsing Failure error"
+			case .failedSerialization: return "serialization print for debug failed."
+			case .requestFailed(let description): return "Request Failed error -> \(description)"
+			case .jsonConversionFailure(let description): return "JSON Conversion Failure -> \(description)"
+			case .responseUnsuccessful(let description): return "Response Unsuccessful error -> \(description)"
+		}
+	}
+}
 
 struct Breed: Codable, CustomStringConvertible {
 	let id: String
 	let name: String
-	let temperament: String?
 	let origin: String?
 	let wikipediaLink: URL?
+	let temperament: String?
 	let breedExplaining: String
 	let hairless: Bool
 	let image: BreedImage
-
+	
 	var description: String {
 		"Breed \(name) with ID: \(id)\n\(image.url)"
 	}
@@ -64,20 +65,40 @@ extension Breed {
 	}
 	
 	enum CodingKeys: String, CodingKey {
-	case id, name,temperament, origin
-	case wikipediaLink = "wikipedia_url"
-	case breedExplaining = "description"
-	case hairless, image
+		case id, name,temperament, origin
+		case wikipediaLink = "wikipedia_url"
+		case breedExplaining = "description"
+		case hairless, image
 	}
 }
 
-let url = URL(string: "https://api.thecatapi.com/v1/breeds?limit=1")!
-
-let request = URLSession.shared.dataTask(with: url) { data, response, error in
-	if let data = data, let breed = try? JSONDecoder().decode([Breed].self, from: data) {
-		print(breed)
+func getBreeds(from url: URL) async throws -> [Breed] {
+	guard let url = URL(string: url.absoluteString) else {
+		throw APIError.invalidURL(url: url)
+	}
+	
+	let (data, response) = try await URLSession.shared.data(from: url)
+	
+	guard let httpResponse = response as? HTTPURLResponse else {
+		throw APIError.requestFailed(description: "unvalid response")
+	}
+	
+	guard httpResponse.statusCode == 200 else {
+		throw APIError.responseUnsuccessful(description: "status code \(httpResponse.statusCode)")
+	}
+	
+	do {
+		let decoder = JSONDecoder()
+		let result = try decoder.decode([Breed].self, from: data)
+		return result
+	} catch {
+		throw APIError.jsonConversionFailure(description: error.localizedDescription)
 	}
 }
-request.resume()
 
-//: [Next](@next)
+
+Task {
+	let url = URL(string: "https://api.thecatapi.com/v1/breeds?limit=1")!
+	let printable = try await getBreeds(from: url)
+	print(printable)
+}
