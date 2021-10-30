@@ -15,9 +15,9 @@ enum APIError: Error {
 	
 	var customDescription: String {
 		switch self {
-			case .invalidURL(let url): return "Invalid URL: \(url)"
 			case .invalidData: return "Invalid Data error"
 			case .noInternet: return "No internet connection"
+			case .invalidURL(let url): return "Invalid URL: \(url)"
 			case .jsonParsingFailure: return "JSON Parsing Failure error"
 			case .failedSerialization: return "serialization print for debug failed."
 			case .requestFailed(let description): return "Request Failed error -> \(description)"
@@ -47,8 +47,8 @@ struct Breed: Codable, CustomStringConvertible {
 		// From `CodingKeys`
 		id = try values.decode(String.self, forKey: .id)
 		name = try values.decode(String.self, forKey: .name)
-		temperament = try values.decode(String?.self, forKey: .temperament)
 		origin = try values.decode(String?.self, forKey: .origin)
+		temperament = try values.decode(String?.self, forKey: .temperament)
 		wikipediaLink = try values.decode(URL?.self, forKey: .wikipediaLink)
 		breedExplaining = try values.decode(String.self, forKey: .wikipediaLink)
 		image = try values.decode(BreedImage.self, forKey: .image)
